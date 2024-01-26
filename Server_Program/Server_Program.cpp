@@ -1,14 +1,21 @@
 #include <iostream>
 #include <WinSock2.h>
-#include <Ws2tcpip.h>
+#include <direct.h>
 #include <string>
 #include <thread>
 
 #pragma comment(lib, "ws2_32.lib")
 
 void handleClient(SOCKET clientSocket) {
-    std::string helloWorld = "Hello world";
-    send(clientSocket, helloWorld.c_str(), helloWorld.size() + 1, 0);
+    char buffer[1024];
+    memset(buffer, 0, sizeof(buffer));
+    int bytesReceived = recv(clientSocket, buffer, 1024, 0);
+    if (bytesReceived > 0) {
+        std::string username(buffer, 0, bytesReceived);
+        _mkdir(username.c_str());
+        std::string message = "Hello " + username;
+        send(clientSocket, message.c_str(), message.size() + 1, 0);
+    }
     closesocket(clientSocket);
 }
 

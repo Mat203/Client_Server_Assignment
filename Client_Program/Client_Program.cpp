@@ -33,6 +33,11 @@ int main() {
         return 1;
     }
 
+    std::string username;
+    std::cout << "Enter your username: ";
+    std::getline(std::cin, username);
+    send(clientSocket, username.c_str(), username.size() + 1, 0);
+
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     int bytesReceived = recv(clientSocket, buffer, 1024, 0);
