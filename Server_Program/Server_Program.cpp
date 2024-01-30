@@ -187,57 +187,76 @@ void handleClient(SOCKET clientSocket) {
     closesocket(clientSocket);
 }
 
+class Server {
+public:
+    Server(int port) : port(port) {
+        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            std::cerr << "WSAStartup failed" << std::endl;
+            exit(1);
+        }
 
-int main() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed" << std::endl;
-        return 1;
+        serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (serverSocket == INVALID_SOCKET) {
+            std::cerr << "Error creating socket: " << WSAGetLastError() << std::endl;
+            WSACleanup();
+            exit(1);
+        }
+
+        serverAddr.sin_family = AF_INET;
+        serverAddr.sin_addr.s_addr = INADDR_ANY;
+        serverAddr.sin_port = htons(port);
+
+        if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+            std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
+            closesocket(serverSocket);
+            WSACleanup();
+            exit(1);
+        }
+
+        if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+            std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
+            closesocket(serverSocket);
+            WSACleanup();
+            exit(1);
+        }
+
+        std::cout << "Server listening on port " << port << std::endl;
     }
 
-    int port = 12345;
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket == INVALID_SOCKET) {
-        std::cerr << "Error creating socket: " << WSAGetLastError() << std::endl;
-        WSACleanup();
-        return 1;
-    }
-
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(port);
-
-    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
+    ~Server() {
         closesocket(serverSocket);
         WSACleanup();
-        return 1;
     }
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-
-    std::cout << "Server listening on port " << port << std::endl;
-
-    while (true) {
+    SOCKET acceptClient() {
         SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
         if (clientSocket == INVALID_SOCKET) {
             std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
             closesocket(serverSocket);
             WSACleanup();
-            return 1;
+            exit(1);
         }
+        return clientSocket;
+    }
+
+private:
+    WSADATA wsaData;
+    int port;
+    SOCKET serverSocket;
+    sockaddr_in serverAddr;
+};
+
+
+int main() {
+    Server server(12345);
+
+    while (true) {
+        SOCKET clientSocket = server.acceptClient();
 
         std::thread clientThread(handleClient, clientSocket);
         clientThread.detach();
     }
 
-    closesocket(serverSocket);
-    WSACleanup();
     return 0;
 }
+
