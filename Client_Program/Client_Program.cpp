@@ -43,6 +43,43 @@ public:
             return "";
         }
     }
+
+    static void listFiles(SOCKET clientSocket) {
+        char buffer[1024];
+        std::cout << "List of files in the directory" << std::endl;
+        while (true) {
+            memset(buffer, 0, sizeof(buffer));
+            int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+            if (bytesReceived > 0) {
+                std::string command(buffer, bytesReceived);
+                if (command.find("END") != std::string::npos) {
+                    break;
+                }
+                std::cout << command << std::endl;
+            }
+            else {
+                break;
+            }
+        }
+    }
+
+    static void showDeleteInfo(SOCKET clientSocket) {
+        std::string command;
+        command = FileHandler::receiveCommand(clientSocket);
+        std::cout << command << std::endl;
+    }
+
+    static void showFileInfo(SOCKET clientSocket) {
+        std::string command;
+        std::cout << "File information:" << std::endl;
+        while (true) {
+            command = FileHandler::receiveCommand(clientSocket);
+            std::cout << command << std::endl;
+            if (command.find("------------") != std::string::npos) {
+                break;
+            }
+        }
+    }
 };
 
 int main() {
@@ -95,6 +132,16 @@ int main() {
             std::string fileName = command.substr(5);
             FileHandler::sendFile(clientSocket, fileName.c_str());
         }
+        else if (command.substr(0, 4) == "list") {
+            FileHandler::listFiles(clientSocket);
+        }
+        else if (command.substr(0, 6) == "delete") {
+            FileHandler::showDeleteInfo(clientSocket);
+        }
+        else if (command.substr(0, 4) == "info") {
+            FileHandler::showFileInfo(clientSocket);
+        }
+
     }
 
     closesocket(clientSocket);
