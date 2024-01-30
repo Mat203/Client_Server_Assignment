@@ -2,8 +2,48 @@
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #include <string>
+#include <fstream>
 
 #pragma comment(lib, "ws2_32.lib")
+
+class FileHandler {
+public:
+    static void sendFile(SOCKET clientSocket, const char* fileName)
+    {
+        char buffer[1024];
+        std::ifstream inputFile(fileName, std::ios::binary);
+        inputFile.seekg(0, std::ios::end);
+        int totalSize = inputFile.tellg();
+        inputFile.seekg(0, std::ios::beg);
+        send(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
+        int totalBytesSent = 0;
+        while (inputFile)
+        {
+            inputFile.read(buffer, sizeof(buffer));
+            int bytesRead = inputFile.gcount();
+            if (bytesRead > 0)
+            {
+                send(clientSocket, buffer, bytesRead, 0);
+                std::cout << buffer << std::endl;
+                totalBytesSent += bytesRead;
+                std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
+            }
+        }
+        inputFile.close();
+    }
+
+    static std::string receiveCommand(SOCKET clientSocket) {
+        char buffer[1024];
+        memset(buffer, 0, sizeof(buffer));
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived > 0) {
+            return std::string(buffer, bytesReceived);
+        }
+        else {
+            return "";
+        }
+    }
+};
 
 int main() {
     WSADATA wsaData;
@@ -43,6 +83,18 @@ int main() {
     int bytesReceived = recv(clientSocket, buffer, 1024, 0);
     if (bytesReceived > 0) {
         std::cout << "SERVER> " << std::string(buffer, 0, bytesReceived) << std::endl;
+    }
+
+    while (true) {
+        std::string command;
+        std::cout << "Enter command: ";
+        std::getline(std::cin, command);
+        send(clientSocket, command.c_str(), command.size() + 1, 0);
+
+        if (command.substr(0, 4) == "send") {
+            std::string fileName = command.substr(5);
+            FileHandler::sendFile(clientSocket, fileName.c_str());
+        }
     }
 
     closesocket(clientSocket);

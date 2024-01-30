@@ -3,21 +3,128 @@
 #include <direct.h>
 #include <string>
 #include <thread>
+#include <fstream>
 
 #pragma comment(lib, "ws2_32.lib")
 
+class FileHandler {
+public:
+    static void receiveFile(SOCKET clientSocket, const std::string& username)
+    {
+        char buffer[2048];
+        std::string directoryPath = username + "/";
+        std::string fileName = "received_file.txt";
+        std::string fullPath = directoryPath + fileName;
+        std::ofstream outputFile(fullPath, std::ios::binary);
+
+        int totalSize;
+        int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
+        if (bytesReceived == SOCKET_ERROR || bytesReceived == 0) {
+            std::cout << "Error in receiving total size." << std::endl;
+            return;
+        }
+
+        int totalReceived = 0;
+        while (totalReceived < totalSize)
+        {
+            bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+            if (bytesReceived > 0)
+            {
+                outputFile.write(buffer, bytesReceived);
+                totalReceived += bytesReceived;
+            }
+            else
+            {
+                break;
+            }
+        }
+        outputFile.close();
+    }
+
+    static void sendFile(SOCKET clientSocket, const std::string& username, const char* fileName)
+    {
+        char buffer[1024];
+        std::string directoryPath = username + "/";
+        std::string fullPath = directoryPath + fileName;
+        std::ifstream inputFile(fullPath.c_str(), std::ios::binary);
+        inputFile.seekg(0, std::ios::end);
+        int totalSize = inputFile.tellg();
+        inputFile.seekg(0, std::ios::beg);
+        send(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
+        int totalBytesSent = 0;
+        while (inputFile)
+        {
+            inputFile.read(buffer, sizeof(buffer));
+            int bytesRead = inputFile.gcount();
+            if (bytesRead > 0)
+            {
+                send(clientSocket, buffer, bytesRead, 0);
+                std::cout << buffer << std::endl;
+                totalBytesSent += bytesRead;
+                std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
+            }
+        }
+        inputFile.close();
+    }
+
+    static void deleteFile(SOCKET clientSocket, const char* fileName) {
+        std::string directoryPath = "Server_files/";
+        std::string fullPath = directoryPath + fileName;
+        if (remove(fullPath.c_str()) != 0) {
+            std::cout << "Error deleting file" << std::endl;
+        }
+        else {
+            std::cout << "File successfully deleted" << std::endl;
+            std::string successMessage = "File successfully deleted";
+            send(clientSocket, successMessage.c_str(), successMessage.size() + 1, 0);
+        }
+    }
+
+    static std::string receiveCommand(SOCKET clientSocket) {
+        char buffer[1024];
+        memset(buffer, 0, sizeof(buffer));
+        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived > 0) {
+            return std::string(buffer, bytesReceived);
+        }
+        else {
+            return "";
+        }
+    }
+};
+
 void handleClient(SOCKET clientSocket) {
     char buffer[1024];
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, 1024);
     int bytesReceived = recv(clientSocket, buffer, 1024, 0);
+    std::string username;
     if (bytesReceived > 0) {
-        std::string username(buffer, 0, bytesReceived);
+        username = std::string(buffer, 0, bytesReceived);
         _mkdir(username.c_str());
         std::string message = "Hello " + username;
         send(clientSocket, message.c_str(), message.size() + 1, 0);
     }
+
+    while (true) {
+        std::string command = FileHandler::receiveCommand(clientSocket);
+        std::cout << command << std::endl;
+
+        if (command.substr(0, 7) == "receive") {
+            std::string fileName = command.substr(8);
+            FileHandler::sendFile(clientSocket, username, fileName.c_str());
+        }
+        else if (command.substr(0, 6) == "delete") {
+            std::string fileNameToDelete = command.substr(7);
+            FileHandler::deleteFile(clientSocket, fileNameToDelete.c_str());
+        }
+        else if (command.substr(0, 4) == "send") {
+            FileHandler::receiveFile(clientSocket, username);
+        }
+    }
+
     closesocket(clientSocket);
 }
+
 
 int main() {
     WSADATA wsaData;
