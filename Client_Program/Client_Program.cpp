@@ -10,7 +10,8 @@ class FileHandler {
 public:
     static void sendFile(SOCKET clientSocket, const char* fileName)
     {
-        char buffer[1024];
+        const int bufferSize = 1024;
+        char buffer[bufferSize];
         std::ifstream inputFile(fileName, std::ios::binary);
         inputFile.seekg(0, std::ios::end);
         int totalSize = inputFile.tellg();
@@ -23,10 +24,21 @@ public:
             int bytesRead = inputFile.gcount();
             if (bytesRead > 0)
             {
-                send(clientSocket, buffer, bytesRead, 0);
-                std::cout << buffer << std::endl;
+                int bytesSent = 0;
+                while (bytesSent < bytesRead) 
+                {
+                    int result = send(clientSocket, buffer + bytesSent, bytesRead - bytesSent, 0);
+                    if (result == SOCKET_ERROR)
+                    {
+                        std::cerr << "send failed with error: " << WSAGetLastError() << std::endl;
+                        closesocket(clientSocket);
+                        WSACleanup();
+                        return;
+                    }
+                    bytesSent += result;
+                }
                 totalBytesSent += bytesRead;
-                std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
+                //std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
             }
         }
         inputFile.close();
