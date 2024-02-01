@@ -11,11 +11,14 @@ The client connects to the server by specifying the server’s IP address and po
 The client and server communicate by sending and receiving data over their sockets. The data is sent in chunks of a specified size (1024 bytes in our case). The client can send commands to the server, and the server processes these commands and sends back responses.
 
 ## Classes
-The server and client have next classes:
+The server and client have the following classes:
 
-FileHandler: it process all the information that user sends and server receives
+FileHandler: it processes all the information that the user sends and the server receives
 
-Server: class that contains all the stuff about program and connection setup
+Server: the class that contains all the stuff about the program and connection setup
+
+## Mutex
+Server uses mutex library to handle the multi-client connection
 
 ## Commands
 The client can send the following commands to the server:
