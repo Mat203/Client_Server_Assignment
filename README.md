@@ -27,7 +27,7 @@ ClientHandler: the class that handles the connection between server and user
 ## Establishing the communication between user and server
 1. Server accepts client Socket
 2. Server creates a separate socket for a client
-3. Server send response "HELLO <user>\n"
+3. Server send response "HELLO "<user>"\n"
 ## Mutex
 Server uses mutex library to handle the multi-client connection
 
@@ -47,12 +47,12 @@ Here are the main functions used in the protocol:
 
 handleClient: This function runs in a separate thread for each client. It receives commands from the client and calls the appropriate function to process the command.
 
-sendFile: **6+bytes, "send <filename>\n** This function is called when the client wants to send a file to the server. It reads the file in chunks and sends each chunk to the server.
+sendFile: **6+bytes, "send "<filename>"\n** This function is called when the client wants to send a file to the server. It reads the file in chunks and sends each chunk to the server.
 
-receiveFile: **8+ bytes, "receive <filename>\n**This function is called when the server needs to receive a file from the client. It receives the file in chunks and writes each chunk to a file in the user’s directory.
+receiveFile: **8+ bytes, "receive "<filename>"\n**This function is called when the server needs to receive a file from the client. It receives the file in chunks and writes each chunk to a file in the user’s directory.
 
 listFilesInDirectory: **5 bytes, "list\n"** This function is called when the client requests a list of files in its directory. The server reads the directory contents and sends the file names to the client.
 
-deleteFile: **8+ bytes, "delete <filename>\n"** This function is called when the client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
+deleteFile: **8+ bytes, "delete "<filename>"\n"** This function is called when the client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
 
-getFileInfo: **6+ bytes, "info <filename>\n"** This function is called when the client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
+getFileInfo: **6+ bytes, "info "<filename>"\n"** This function is called when the client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
