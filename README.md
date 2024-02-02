@@ -27,7 +27,7 @@ ClientHandler: the class that handles the connection between server and user
 ## Establishing the communication between user and server
 1. Server accepts client Socket
 2. Server creates a separate socket for a client
-3. Server send response "HELLO <user>"
+3. Server send response "HELLO <user>\n"
 ## Mutex
 Server uses mutex library to handle the multi-client connection
 
