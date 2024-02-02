@@ -4,6 +4,9 @@
 #include <string>
 #include <thread>
 #include <fstream>
+#include <mutex>
+
+std::mutex m;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -27,7 +30,9 @@ public:
         int totalReceived = 0;
         while (totalReceived < totalSize)
         {
+            m.lock();
             bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+            m.unlock();
             if (bytesReceived > 0)
             {
                 outputFile.write(buffer, bytesReceived);
@@ -58,7 +63,9 @@ public:
             int bytesRead = inputFile.gcount();
             if (bytesRead > 0)
             {
+                m.lock();
                 send(clientSocket, buffer, bytesRead, 0);
+                m.unlock();
                 std::cout << buffer << std::endl;
                 totalBytesSent += bytesRead;
                 std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
@@ -77,7 +84,9 @@ public:
                 if (!(fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
                     std::string fileName = fileData.cFileName;
                     fileName += "\n";
+                    m.lock();
                     send(clientSocket, fileName.c_str(), fileName.size() + 1, 0);
+                    m.unlock();
                     std::cout << fileName << std::endl;
                 }
             } while (FindNextFileA(hFind, &fileData));
@@ -100,7 +109,9 @@ public:
         else {
             std::cout << "File successfully deleted" << std::endl;
             std::string successMessage = "File successfully deleted";
+            m.lock();
             send(clientSocket, successMessage.c_str(), successMessage.size() + 1, 0);
+            m.unlock();
         }
     }
 
