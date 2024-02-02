@@ -23,6 +23,11 @@ ClientHandler: the class that handles the connection between server and user
 1. The client and server use a buffer of 1024 bytes
 2. The server receives the command using recv command and ReceiveCommand function
 3. ReceiveCommand function returns a string to process the command
+
+## Establishing the communication between user and server
+1. Server accepts client Socket
+2. Server creates a separate socket for a client
+3. Server send response "HELLO <user>"
 ## Mutex
 Server uses mutex library to handle the multi-client connection
 
@@ -48,6 +53,6 @@ receiveFile: **8+ bytes, "receive <filename>\n**This function is called when the
 
 listFilesInDirectory: **5 bytes, "list\n"** This function is called when the client requests a list of files in its directory. The server reads the directory contents and sends the file names to the client.
 
-deleteFile: **8+ bytes, "delete <filename>\n** This function is called when the client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
+deleteFile: **8+ bytes, "delete <filename>\n"** This function is called when the client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
 
-getFileInfo: **6+ bytes, "info <filename>\n** This function is called when the client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
+getFileInfo: **6+ bytes, "info <filename>\n"** This function is called when the client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
