@@ -3,96 +3,9 @@
 #include <Ws2tcpip.h>
 #include <string>
 #include <fstream>
+#include "ClientFileHandler.h"
 
 #pragma comment(lib, "ws2_32.lib")
-
-class FileHandler {
-public:
-    static void sendFile(SOCKET clientSocket, const char* fileName)
-    {
-        const int bufferSize = 1024;
-        char buffer[bufferSize];
-        std::ifstream inputFile(fileName, std::ios::binary);
-        inputFile.seekg(0, std::ios::end);
-        int totalSize = inputFile.tellg();
-        inputFile.seekg(0, std::ios::beg);
-        send(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
-        int totalBytesSent = 0;
-        while (inputFile)
-        {
-            inputFile.read(buffer, sizeof(buffer));
-            int bytesRead = inputFile.gcount();
-            if (bytesRead > 0)
-            {
-                int bytesSent = 0;
-                while (bytesSent < bytesRead) 
-                {
-                    int result = send(clientSocket, buffer + bytesSent, bytesRead - bytesSent, 0);
-                    if (result == SOCKET_ERROR)
-                    {
-                        std::cerr << "send failed with error: " << WSAGetLastError() << std::endl;
-                        closesocket(clientSocket);
-                        WSACleanup();
-                        return;
-                    }
-                    bytesSent += result;
-                }
-                totalBytesSent += bytesRead;
-                //std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
-            }
-        }
-        inputFile.close();
-    }
-
-    static std::string receiveCommand(SOCKET clientSocket) {
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-        if (bytesReceived > 0) {
-            return std::string(buffer, bytesReceived);
-        }
-        else {
-            return "";
-        }
-    }
-
-    static void listFiles(SOCKET clientSocket) {
-        char buffer[1024];
-        std::cout << "List of files in the directory" << std::endl;
-        while (true) {
-            memset(buffer, 0, sizeof(buffer));
-            int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-            if (bytesReceived > 0) {
-                std::string command(buffer, bytesReceived);
-                if (command.find("END") != std::string::npos) {
-                    break;
-                }
-                std::cout << command << std::endl;
-            }
-            else {
-                break;
-            }
-        }
-    }
-
-    static void showDeleteInfo(SOCKET clientSocket) {
-        std::string command;
-        command = FileHandler::receiveCommand(clientSocket);
-        std::cout << command << std::endl;
-    }
-
-    static void showFileInfo(SOCKET clientSocket) {
-        std::string command;
-        std::cout << "File information:" << std::endl;
-        while (true) {
-            command = FileHandler::receiveCommand(clientSocket);
-            std::cout << command << std::endl;
-            if (command.find("------------") != std::string::npos) {
-                break;
-            }
-        }
-    }
-};
 
 class Server {
 public:

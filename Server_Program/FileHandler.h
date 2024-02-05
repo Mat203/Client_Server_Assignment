@@ -1,21 +1,26 @@
 #pragma once
-
-#include <iostream>
-#include <fstream>
-#include <string>
 #include <WinSock2.h>
-#include <Windows.h>
+#include <string>
 #include <mutex>
+#include <iostream>
+#include <vector>
+#include <fstream>
+#include <WinSock2.h>
+#include <string>
 
 class FileHandler {
 public:
-    static void receiveFile(SOCKET clientSocket, const std::string& username);
-    static void sendFile(SOCKET clientSocket, const std::string& username, const char* fileName);
-    static void listFilesInDirectory(SOCKET clientSocket, const std::string& username);
-    static void deleteFile(SOCKET clientSocket, const std::string& username, const char* fileName);
-    static std::string receiveCommand(SOCKET clientSocket);
-    static void getFileInfo(SOCKET clientSocket, const std::string& username, const char* fileName);
+    FileHandler(SOCKET clientSocket);
+
+    void receiveFile(const std::string& username);
+    void sendFile(const std::string& username, const char* fileName);
+    void listFilesInDirectory(const std::string& username);
+    void deleteFile(const std::string& username, const char* fileName);
+    std::string receiveCommand();
+    void getFileInfo(const std::string& username, const char* fileName);
 
 private:
-    static std::mutex m;
+    SOCKET clientSocket;
+    int sendData(const char* buffer, int len);
+    int receiveData(char* buffer, int len);
 };

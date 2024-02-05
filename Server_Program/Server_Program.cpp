@@ -5,198 +5,58 @@
 #include <thread>
 #include <fstream>
 #include <mutex>
-
-std::mutex m;
+#include <vector>
+#include "FileHandler.h"
 
 #pragma comment(lib, "ws2_32.lib")
 
-class FileHandler {
+class ClientHandler {
 public:
-    static void receiveFile(SOCKET clientSocket, const std::string& username)
-    {
-        char buffer[2048];
-        std::string directoryPath = username + "/";
-        std::string fileName = "received_file.txt";
-        std::string fullPath = directoryPath + fileName;
-        std::ofstream outputFile(fullPath, std::ios::binary);
+    ClientHandler(SOCKET clientSocket) : clientSocket(clientSocket), fileHandler(clientSocket) {}
 
-        int totalSize;
-        int bytesReceived = recv(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
-        if (bytesReceived == SOCKET_ERROR || bytesReceived == 0) {
-            std::cout << "Error in receiving total size." << std::endl;
-            return;
-        }
-
-        int totalReceived = 0;
-        while (totalReceived < totalSize)
-        {
-            m.lock();
-            bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
-            m.unlock();
-            if (bytesReceived > 0)
-            {
-                outputFile.write(buffer, bytesReceived);
-                totalReceived += bytesReceived;
-            }
-            else
-            {
-                break;
-            }
-        }
-        outputFile.close();
-    }
-
-    static void sendFile(SOCKET clientSocket, const std::string& username, const char* fileName)
-    {
+    void handle() {
         char buffer[1024];
-        std::string directoryPath = username + "/";
-        std::string fullPath = directoryPath + fileName;
-        std::ifstream inputFile(fullPath.c_str(), std::ios::binary);
-        inputFile.seekg(0, std::ios::end);
-        int totalSize = inputFile.tellg();
-        inputFile.seekg(0, std::ios::beg);
-        send(clientSocket, reinterpret_cast<char*>(&totalSize), sizeof(int), 0);
-        int totalBytesSent = 0;
-        while (inputFile)
-        {
-            inputFile.read(buffer, sizeof(buffer));
-            int bytesRead = inputFile.gcount();
-            if (bytesRead > 0)
-            {
-                m.lock();
-                send(clientSocket, buffer, bytesRead, 0);
-                m.unlock();
-                std::cout << buffer << std::endl;
-                totalBytesSent += bytesRead;
-                std::cout << "Sent " << bytesRead << " bytes, total: " << totalBytesSent << " bytes" << std::endl;
-            }
-        }
-        inputFile.close();
-    }
-
-    static void listFilesInDirectory(SOCKET clientSocket, const std::string& username) {
-        WIN32_FIND_DATAA fileData;
-        HANDLE hFind;
-        std::cout << "List of files in the client's directory" << std::endl;
-        std::string directoryPath = username + "\\*";
-        if (!((hFind = FindFirstFileA(directoryPath.c_str(), &fileData)) == INVALID_HANDLE_VALUE)) {
-            do {
-                if (!(fileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                    std::string fileName = fileData.cFileName;
-                    fileName += "\n";
-                    m.lock();
-                    send(clientSocket, fileName.c_str(), fileName.size() + 1, 0);
-                    m.unlock();
-                    std::cout << fileName << std::endl;
-                }
-            } while (FindNextFileA(hFind, &fileData));
-            FindClose(hFind);
-        }
-        else {
-            std::cout << "Path not found" << std::endl;
-        }
-        std::cout << "-----------------------" << std::endl;
-        std::string endMarker = "END";
-        send(clientSocket, endMarker.c_str(), endMarker.size() + 1, 0);
-    }
-
-    static void deleteFile(SOCKET clientSocket, const std::string& username, const char* fileName) {
-        std::string directoryPath = username + "/";
-        std::string fullPath = directoryPath + fileName;
-        if (remove(fullPath.c_str()) != 0) {
-            std::cout << "Error deleting file" << std::endl;
-        }
-        else {
-            std::cout << "File successfully deleted" << std::endl;
-            std::string successMessage = "File successfully deleted";
-            m.lock();
-            send(clientSocket, successMessage.c_str(), successMessage.size() + 1, 0);
-            m.unlock();
-        }
-    }
-
-    static std::string receiveCommand(SOCKET clientSocket) {
-        char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
-        int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        memset(buffer, 0, 1024);
+        int bytesReceived = recv(clientSocket, buffer, 1024, 0);
+        std::string username;
         if (bytesReceived > 0) {
-            return std::string(buffer, bytesReceived);
+            username = std::string(buffer, 0, bytesReceived);
+            _mkdir(username.c_str());
+            std::string message = "Hello " + username;
+            send(clientSocket, message.c_str(), message.size() + 1, 0);
         }
-        else {
-            return "";
+
+        while (true) {
+            std::string command = fileHandler.receiveCommand();
+            std::cout << command << std::endl;
+
+            if (command.substr(0, 7) == "receive") {
+                std::string fileName = command.substr(8);
+                fileHandler.sendFile(username, fileName.c_str());
+            }
+            else if (command.substr(0, 6) == "delete") {
+                std::string fileNameToDelete = command.substr(7);
+                fileHandler.deleteFile(username, fileNameToDelete.c_str());
+            }
+            else if (command.substr(0, 4) == "send") {
+                fileHandler.receiveFile(username);
+            }
+            else if (command.substr(0, 4) == "list") {
+                fileHandler.listFilesInDirectory(username);
+            }
+            if (command.substr(0, 4) == "info") {
+                std::string fileName = command.substr(5);
+                fileHandler.getFileInfo(username, fileName.c_str());
+            }
         }
+
+        closesocket(clientSocket);
     }
 
-    static void getFileInfo(SOCKET clientSocket, const std::string& username, const char* fileName) {
-        std::string directoryPath = username + "/";
-        std::string fullPath = directoryPath + fileName;
-        WIN32_FILE_ATTRIBUTE_DATA fileInfo;
-
-        if (GetFileAttributesExA(fullPath.c_str(), GetFileExInfoStandard, &fileInfo)) {
-            LARGE_INTEGER size;
-            size.HighPart = fileInfo.nFileSizeHigh;
-            size.LowPart = fileInfo.nFileSizeLow;
-
-            FILETIME lastWriteTime = fileInfo.ftLastWriteTime;
-            SYSTEMTIME stUTC, stLocal;
-            FileTimeToSystemTime(&lastWriteTime, &stUTC);
-            SystemTimeToTzSpecificLocalTime(NULL, &stUTC, &stLocal);
-
-            std::string timeInfo = "Last modified: " + std::to_string(stLocal.wDay) + "/" + std::to_string(stLocal.wMonth) + "/" + std::to_string(stLocal.wYear) + " " + std::to_string(stLocal.wHour) + ":" + std::to_string(stLocal.wMinute) + "\n";
-            send(clientSocket, timeInfo.c_str(), timeInfo.size() + 1, 0);
-
-            std::string sizeInfo = "Size: " + std::to_string(size.QuadPart) + " bytes\n";
-            send(clientSocket, sizeInfo.c_str(), sizeInfo.size() + 1, 0);
-
-            std::string endMarker = "------------\n";
-            send(clientSocket, endMarker.c_str(), endMarker.size() + 1, 0);
-
-        }
-        else {
-            std::string error = "Failed to get file attributes.\n";
-            send(clientSocket, error.c_str(), error.size() + 1, 0);
-        }
-    }
+private:
+    SOCKET clientSocket;
+    FileHandler fileHandler;
 };
-
-void handleClient(SOCKET clientSocket) {
-    char buffer[1024];
-    memset(buffer, 0, 1024);
-    int bytesReceived = recv(clientSocket, buffer, 1024, 0);
-    std::string username;
-    if (bytesReceived > 0) {
-        username = std::string(buffer, 0, bytesReceived);
-        _mkdir(username.c_str());
-        std::string message = "Hello " + username;
-        send(clientSocket, message.c_str(), message.size() + 1, 0);
-    }
-
-    while (true) {
-        std::string command = FileHandler::receiveCommand(clientSocket);
-        std::cout << command << std::endl;
-
-        if (command.substr(0, 7) == "receive") {
-            std::string fileName = command.substr(8);
-            FileHandler::sendFile(clientSocket, username, fileName.c_str());
-        }
-        else if (command.substr(0, 6) == "delete") {
-            std::string fileNameToDelete = command.substr(7);
-            FileHandler::deleteFile(clientSocket, username,fileNameToDelete.c_str());
-        }
-        else if (command.substr(0, 4) == "send") {
-            FileHandler::receiveFile(clientSocket, username);
-        }
-        else if (command.substr(0, 4) == "list") {
-            FileHandler::listFilesInDirectory(clientSocket, username);
-        }
-        if (command.substr(0, 4) == "info") {
-            std::string fileName = command.substr(5);
-            FileHandler::getFileInfo(clientSocket, username, fileName.c_str());
-        }
-    }
-
-    closesocket(clientSocket);
-}
 
 class Server {
 public:
@@ -257,17 +117,16 @@ private:
     sockaddr_in serverAddr;
 };
 
-
 int main() {
     Server server(12345);
 
     while (true) {
         SOCKET clientSocket = server.acceptClient();
 
-        std::thread clientThread(handleClient, clientSocket);
+        ClientHandler clientHandler(clientSocket);
+        std::thread clientThread(&ClientHandler::handle, &clientHandler);
         clientThread.detach();
     }
 
     return 0;
 }
-
