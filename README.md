@@ -70,7 +70,6 @@
    - *Server Response:* `OPPONENT_DISCONNECTED`
 
 ### Program Classes and Structures
-Certainly! Let's go through the functions and classes in the provided C++ program:
 
 ### Classes:
 
