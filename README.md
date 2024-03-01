@@ -11,10 +11,7 @@
 3. **MOVE \<row\> \<column\>** (9 bytes)
     - Makes a move on the Tic Tac Toe board. The coordinates (row, column) specify the position where the player wants to place their symbol. For example, "MOVE 1 2" places the symbol in the second column of the first row.
 
-4. **UPDATE_BOARD** (13 bytes)
-    - Requests an update of the current state of the Tic Tac Toe board.
-
-5. **QUIT**(5 bytes)
+4. **QUIT**(5 bytes)
     - Disconnects from the game.
 
 ### Responses:
