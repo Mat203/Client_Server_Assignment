@@ -1,58 +1,103 @@
-# Client-server Protocol
-The protocol is based on a client-server model where the server listens for incoming connections from clients. Once a client connects, it can send commands to the server to perform certain operations. The server processes these commands and sends back responses to the client.
+## Tic Tac Toe Game Protocol
 
-## Server Setup
-The server is set up to listen on a specific port for incoming connections. When a client connects, the server accepts the connection and creates a new socket for communication with that client. This allows the server to handle multiple clients simultaneously, each with its own dedicated socket.
+### Commands:
 
-## Client Setup
-The client connects to the server by specifying the server’s IP address and port number. Once connected, the client sends its username to the server. The server creates a new directory with the username if it doesn’t exist already.
+1. **JOIN \<room_id\>** (2 bytes, room_id)
+    - Joins the specified room to play Tic Tac Toe.
 
-## Communication
-The client and server communicate by sending and receiving data over their sockets. The data is sent in chunks of a specified size (1024 bytes in our case). The client can send commands to the server, and the server processes these commands and sends back responses.
+2. **START** (6 bytes)
+    - Initiates the game once two players are in the room. The game starts with 'X' making the first move.
 
-## Classes
-The server and client have the following classes:
+3. **MOVE \<row\> \<column\>** (9 bytes)
+    - Makes a move on the Tic Tac Toe board. The coordinates (row, column) specify the position where the player wants to place their symbol. For example, "MOVE 1 2" places the symbol in the second column of the first row.
 
-FileHandler: it processes all the information that the user sends and the server receives
+4. **UPDATE_BOARD** (13 bytes)
+    - Requests an update of the current state of the Tic Tac Toe board.
 
-Server: the class that contains all the stuff about the program and connection setup
+5. **QUIT**(5 bytes)
+    - Disconnects from the game.
 
-ClientHandler: the class that handles the connection between server and user
+### Responses:
 
-## Byte-Level details about connection
-1. The client and server use a buffer of 1024 bytes
-2. The server receives the command using recv command and ReceiveCommand function
-3. ReceiveCommand function returns a string to process the command
+1. **WAITING \<player_symbol\>**
+    - Informs the player that they are waiting for another player to join the room. Also, provides the symbol assigned to the player.
 
-## Establishing the communication between user and server
-1. Server accepts client Socket
-2. Server creates a separate socket for a client
-3. Server send response "HELLO "user"\n"
-## Mutex
-Server uses mutex library to handle the multi-client connection
+2. **GAME_START \<player_symbol\>**
+    - Notifies the players that the game has started. Specifies which player ('X' or 'O') is making the first move.
 
-## Commands
-The client can send the following commands to the server:
+3. **INVALID_MOVE**
+    - Indicates that the player's move was invalid (e.g., trying to make a move in an already occupied position).
 
-send: The client sends a file to the server. The file is read in chunks and sent over the socket. The server receives the file and writes it to the user’s directory.
+4. **BOARD_UPDATE \<board_state\>**
+    - Sends the current state of the Tic Tac Toe board to the player. The board_state is a 3x3 matrix representing the positions of 'X', 'O', and empty spaces.
 
-list: The server sends a list of files in the client’s directory. The server reads the directory contents and sends the file names to the client.
+5. **TURN \<player_symbol\>**
+    - Informs the player that it's their turn to make a move.
 
-delete: The client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
+6. **WINNER \<player_symbol\>**
+    - Declares the winner of the game.
 
-info: The client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
+7. **DRAW**
+    - Announces that the game ended in a draw.
 
-## Functions
-Here are the main functions used in the protocol:
+8. **OPPONENT_DISCONNECTED**
+    - Notifies the player that their opponent has disconnected.
 
-handleClient: This function runs in a separate thread for each client. It receives commands from the client and calls the appropriate function to process the command.
+### Example Usage:
 
-sendFile: **6+bytes, "send "filename"\n** This function is called when the client wants to send a file to the server. It reads the file in chunks and sends each chunk to the server.
+1. **Client 1:** `JOIN room_1`
+   - *Server Response:* `WAITING X`
 
-receiveFile: **8+ bytes, "receive "filename"\n**This function is called when the server needs to receive a file from the client. It receives the file in chunks and writes each chunk to a file in the user’s directory.
+2. **Client 2:** `JOIN room_1`
+   - *Server Response:* `GAME_START O`
 
-listFilesInDirectory: **5 bytes, "list\n"** This function is called when the client requests a list of files in its directory. The server reads the directory contents and sends the file names to the client.
+3. **Client 1:** `START`
+   - *Server Response:* `TURN X`
 
-deleteFile: **8+ bytes, "delete "filename"\n"** This function is called when the client requests to delete a file in its directory. The server deletes the file and sends a confirmation to the client.
+4. **Client 1:** `MOVE 1 1`
+   - *Server Response:* `TURN O`
 
-getFileInfo: **6+ bytes, "info "filename"\n"** This function is called when the client requests information about a file in its directory. The server retrieves the file information and sends it to the client.
+5. **Client 2:** `MOVE 0 0`
+   - *Server Response:* `TURN X`
+
+6. **Client 1:** `UPDATE_BOARD`
+   - *Server Response:* `BOARD_UPDATE [['X', ' ', ' '], [' ', 'O', ' '], [' ', ' ', ' ']]`
+
+7. **Client 1:** `MOVE 2 2`
+   - *Server Response:* `WINNER X`
+
+8. **Client 2:** `QUIT`
+   - *Server Response:* `OPPONENT_DISCONNECTED`
+
+### Program Classes and Structures
+Certainly! Let's go through the functions and classes in the provided C++ program:
+
+### Classes:
+
+1. **Message:**
+   - **Description:** A simple structure representing a message sent between clients. It includes the content of the message, the sender's socket, and the room ID.
+   - **Attributes:**
+     - `std::string content`: Content of the message.
+     - `SOCKET senderSocket`: Sender's socket.
+     - `std::string roomId`: Room ID.
+
+2. **ChatServer:**
+   - **Description:** The main class representing the Tic Tac Toe game server.
+   - **Attributes:**
+     - `std::map<std::string, std::vector<SOCKET>> rooms`: Maps room IDs to a vector of client sockets in each room.
+     - `std::map<std::string, std::vector<std::string>> gameBoard`: Maps room IDs to the Tic Tac Toe game board.
+     - `std::map<std::string, int> PlayersReady`: Maps room IDs to the number of players ready to start.
+     - `std::map<SOCKET, std::string> playerSymbols`: Maps client sockets to their assigned symbols ('X' or 'O').
+     - `std::map<std::string, int> currentPlayerIndexMap`: Maps room IDs to the index of the current player in the room.
+     - Various mutexes and condition variables for thread safety.
+   - **Methods:**
+     - `addMessageToQueue()`: Adds a message to the server's message queue.
+     - `broadcastMessages()`: Listens for messages in the queue and broadcasts them to the appropriate clients.
+     - `broadcastMessageToAll()`: Broadcasts a message to all clients in a specific room, including the sender.
+     - `broadcastUserFigures()`: Sends a message to each client in a room, indicating the symbol they are playing as.
+     - `printBoard()`: Outputs the current state of the Tic Tac Toe board for a specific room.
+     - `checkWinCondition()`: Checks if a player has won the game in a specific room.
+     - `checkDrawCondition()`: Checks if the game in a specific room is a draw.
+     - `sendBoardUpdate()`: Sends the current state of the Tic Tac Toe board to a specific client.
+     - `handleClient()`: Handles communication with a client, including joining rooms, making moves, and managing game state.
+     - `start()`: Initializes and starts the server, accepting client connections and handling them in separate threads.
